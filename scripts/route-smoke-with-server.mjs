@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 const PORT = process.env.SMOKE_PORT || '3010'
 const BASE = `http://127.0.0.1:${PORT}`
+const isWin = process.platform === 'win32'
 
 async function waitForServer(maxMs = 60000) {
   const start = Date.now()
@@ -23,8 +24,8 @@ async function waitForServer(maxMs = 60000) {
 }
 
 const child = spawn(
-  process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['next', 'start', '-p', PORT],
+  isWin ? 'cmd.exe' : 'npx',
+  isWin ? ['/c', 'npx', 'next', 'start', '-p', PORT] : ['next', 'start', '-p', PORT],
   {
     cwd: process.cwd(),
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -36,7 +37,11 @@ let killed = false
 function cleanup() {
   if (killed) return
   killed = true
-  child.kill('SIGTERM')
+  if (isWin && child.pid) {
+    spawn('taskkill', ['/pid', String(child.pid), '/f', '/t'], { stdio: 'ignore' })
+  } else {
+    child.kill('SIGTERM')
+  }
 }
 
 process.on('exit', cleanup)

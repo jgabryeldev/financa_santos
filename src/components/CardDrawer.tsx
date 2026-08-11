@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/MoneyInput'
 import { X } from 'lucide-react'
 import { createCard, updateCard } from '@/actions/cards'
+import type { CardKind } from '@/lib/card-billing'
 
 type CardInput = {
   id?: string
@@ -20,6 +21,7 @@ type CardInput = {
   closing_day?: number
   due_day?: number
   color?: string
+  kind?: CardKind
 }
 
 type Props = {
@@ -41,6 +43,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
   const isEdit = !!card?.id
 
   const [name, setName] = useState(card?.name || '')
+  const [kind, setKind] = useState<CardKind>(card?.kind || 'credit')
   const [limit, setLimit] = useState(card?.credit_limit ? Number(card.credit_limit) : 0)
   const [closingDay, setClosingDay] = useState(card?.closing_day ? String(card.closing_day) : '')
   const [dueDay, setDueDay] = useState(card?.due_day ? String(card.due_day) : '')
@@ -49,6 +52,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
   function reset() {
     if (!isEdit) {
       setName('')
+      setKind('credit')
       setLimit(0)
       setClosingDay('')
       setDueDay('')
@@ -64,9 +68,14 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
     if (!name.trim()) return setError('Informe o nome do cartão.')
     if (!limit || limit <= 0) return setError('Informe um limite válido.')
     const numClosing = parseInt(closingDay, 10)
-    const numDue = parseInt(dueDay, 10)
-    if (!numClosing || numClosing < 1 || numClosing > 31) return setError('Dia de fechamento inválido (1-31).')
-    if (!numDue || numDue < 1 || numDue > 31) return setError('Dia de vencimento inválido (1-31).')
+    if (!numClosing || numClosing < 1 || numClosing > 31) {
+      return setError(kind === 'food' ? 'Dia de recarga inválido (1-31).' : 'Dia de fechamento inválido (1-31).')
+    }
+    let numDue = numClosing
+    if (kind === 'credit') {
+      numDue = parseInt(dueDay, 10)
+      if (!numDue || numDue < 1 || numDue > 31) return setError('Dia de vencimento inválido (1-31).')
+    }
 
     startTransition(async () => {
       try {
@@ -76,6 +85,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
           closing_day: numClosing,
           due_day: numDue,
           color,
+          kind,
         }
 
         const result =
@@ -119,18 +129,42 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
           </div>
 
           <form onSubmit={handleSubmit} className="px-6 space-y-4">
+            <div className="flex gap-2 p-1 bg-zinc-950 rounded-xl">
+              {([
+                { value: 'credit' as const, label: 'Crédito' },
+                { value: 'food' as const, label: 'Alimentação' },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setKind(opt.value)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    kind === opt.value
+                      ? opt.value === 'food'
+                        ? 'bg-amber-500/15 text-amber-400'
+                        : 'bg-indigo-500/15 text-indigo-400'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-1.5">
-              <label className="text-xs text-zinc-500 font-medium">Nome do cartão</label>
+              <label className="text-xs text-zinc-500 font-medium">Nome</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Nubank, Inter, Itaú..."
+                placeholder={kind === 'food' ? 'Ex: VR, Alelo...' : 'Ex: Nubank, Inter...'}
                 className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs text-zinc-500 font-medium">Limite (R$)</label>
+              <label className="text-xs text-zinc-500 font-medium">
+                {kind === 'food' ? 'Limite mensal (R$)' : 'Limite (R$)'}
+              </label>
               <MoneyInput
                 value={limit}
                 onChange={setLimit}
@@ -138,32 +172,50 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {kind === 'food' ? (
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-500 font-medium">Dia fechamento</label>
+                <label className="text-xs text-zinc-500 font-medium">Dia da recarga</label>
                 <Input
                   value={closingDay}
                   onChange={(e) => setClosingDay(e.target.value)}
                   type="number"
                   min="1"
                   max="31"
-                  placeholder="Ex: 15"
+                  placeholder="Ex: 1"
                   className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
                 />
+                <p className="text-[10px] text-zinc-600">
+                  Sem fatura a pagar — o limite renova neste dia. Não é conta corrente.
+                </p>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-zinc-500 font-medium">Dia vencimento</label>
-                <Input
-                  value={dueDay}
-                  onChange={(e) => setDueDay(e.target.value)}
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="Ex: 22"
-                  className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
-                />
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-zinc-500 font-medium">Dia fechamento</label>
+                  <Input
+                    value={closingDay}
+                    onChange={(e) => setClosingDay(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Ex: 15"
+                    className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-zinc-500 font-medium">Dia vencimento</label>
+                  <Input
+                    value={dueDay}
+                    onChange={(e) => setDueDay(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Ex: 22"
+                    className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-xs text-zinc-500 font-medium">Cor</label>

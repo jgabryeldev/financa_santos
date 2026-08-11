@@ -2,7 +2,8 @@ import { getCards } from '@/actions/transactions'
 import { getDashboardBalances } from '@/actions/transactions'
 import { CardDrawer } from '@/components/CardDrawer'
 import { DeleteCardButton } from '@/components/DeleteCardButton'
-import { CreditCard, Plus, TrendingDown } from 'lucide-react'
+import { CreditCard, Plus, TrendingDown, Utensils } from 'lucide-react'
+import Link from 'next/link'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -85,36 +86,44 @@ export default async function CardsPage() {
           {cardsWithLimits.map((card) => {
             const percent = card.limit > 0 ? (card.used / card.limit) * 100 : 0
             const isHigh = percent > 70
+            const full = cards.find((c) => c.id === card.id)
+            const isFood = (card as { kind?: string }).kind === 'food' || full?.kind === 'food'
 
             return (
               <div
                 key={card.id}
                 className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 relative overflow-hidden"
               >
-                {/* Decoração de cor */}
                 <div
                   className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10 -translate-y-6 translate-x-6"
                   style={{ backgroundColor: card.color }}
                 />
 
-                {/* Header do cartão */}
                 <div className="flex items-start justify-between mb-4 relative">
-                  <div className="flex items-center gap-3">
+                  <Link href={`/cards/${card.id}`} className="flex items-center gap-3 min-w-0 flex-1">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: card.color + '20', border: `1px solid ${card.color}40` }}
                     >
-                      <CreditCard size={18} style={{ color: card.color }} />
+                      {isFood ? (
+                        <Utensils size={18} style={{ color: card.color }} />
+                      ) : (
+                        <CreditCard size={18} style={{ color: card.color }} />
+                      )}
                     </div>
-                    <div>
-                      <p className="font-semibold text-zinc-100">{card.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-zinc-100 truncate">{card.name}</p>
                       <p className="text-xs text-zinc-500">
-                        Fecha dia {card.closing_day} • Vence dia {card.due_day}
+                        {isFood ? (
+                          <>Alimentação · Recarga dia {card.closing_day}</>
+                        ) : (
+                          <>Fecha dia {card.closing_day} • Vence dia {card.due_day}</>
+                        )}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CardDrawer card={cards.find(c => c.id === card.id)}>
+                  </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <CardDrawer card={full}>
                       <button className="text-zinc-600 hover:text-zinc-300 text-xs px-2 py-1 rounded-lg hover:bg-zinc-800 transition-colors">
                         Editar
                       </button>
@@ -123,47 +132,49 @@ export default async function CardsPage() {
                   </div>
                 </div>
 
-                {/* Valores */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div>
-                    <p className="text-[10px] text-zinc-600 mb-0.5">Limite</p>
-                    <p className="text-sm font-bold text-zinc-200">R$ {fmt(card.limit)}</p>
+                <Link href={`/cards/${card.id}`} className="block">
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div>
+                      <p className="text-[10px] text-zinc-600 mb-0.5">Limite</p>
+                      <p className="text-sm font-bold text-zinc-200">R$ {fmt(card.limit)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-zinc-600 mb-0.5">
+                        {isFood ? 'Usado' : 'Fatura'}
+                      </p>
+                      <p className={`text-sm font-bold ${card.used > 0 ? 'text-red-400' : 'text-zinc-200'}`}>
+                        R$ {fmt(card.used)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-zinc-600 mb-0.5">Disponível</p>
+                      <p className={`text-sm font-bold ${card.available < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        R$ {fmt(card.available)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-600 mb-0.5">Fatura</p>
-                    <p className={`text-sm font-bold ${card.used > 0 ? 'text-red-400' : 'text-zinc-200'}`}>
-                      R$ {fmt(card.used)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-600 mb-0.5">Disponível</p>
-                    <p className={`text-sm font-bold ${card.available < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                      R$ {fmt(card.available)}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Barra de progresso */}
-                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.min(100, percent)}%`,
-                      backgroundColor: isHigh ? '#f43f5e' : card.color,
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between items-center mt-1.5">
-                  <span className="text-[10px] text-zinc-600">
-                    {percent.toFixed(0)}% utilizado
-                  </span>
-                  {isHigh && (
-                    <span className="text-[10px] text-red-400 flex items-center gap-1">
-                      <TrendingDown size={10} />
-                      Limite alto
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, percent)}%`,
+                        backgroundColor: isHigh ? '#f43f5e' : card.color,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1.5">
+                    <span className="text-[10px] text-zinc-600">
+                      {percent.toFixed(0)}% utilizado
                     </span>
-                  )}
-                </div>
+                    {isHigh && (
+                      <span className="text-[10px] text-red-400 flex items-center gap-1">
+                        <TrendingDown size={10} />
+                        Limite alto
+                      </span>
+                    )}
+                  </div>
+                </Link>
               </div>
             )
           })}

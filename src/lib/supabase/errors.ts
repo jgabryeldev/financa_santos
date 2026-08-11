@@ -20,6 +20,12 @@ export function formatSupabaseError(error: SupabaseLikeError): string {
     /schema cache/i.test(message)
 
   if (missingColumn) {
+    if (/investment_/i.test(message)) {
+      return `Módulo de investimentos ausente no banco. Execute supabase_migrate_v3_investments.sql no SQL Editor do Supabase.`
+    }
+    if (/kind|credit_cards/i.test(message)) {
+      return `Schema de cartões desatualizado. Execute supabase_migrate_v4_card_kinds.sql no SQL Editor do Supabase.`
+    }
     return `O banco está desatualizado (coluna ausente no schema). ${MIGRATE_V2_HINT}`
   }
 

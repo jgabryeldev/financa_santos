@@ -5,10 +5,12 @@
 -- Ordem em projetos já existentes / com erro de schema:
 --   1) supabase_setup.sql
 --   2) supabase_migrate.sql
---   3) supabase_migrate_v2_reconcile.sql  ← obrigatório se houver
---      day_of_month / color ausente (PGRST204 / 23502)
+--   3) supabase_migrate_v2_reconcile.sql  ← day_of_month / color
+--   4) supabase_migrate_v3_investments.sql ← cofrinhos / CDI
+--   5) supabase_migrate_v4_card_kinds.sql  ← credit | food
 --
 -- Schema canônico de fixed_finances: day (nullable), color (NOT NULL).
+-- credit_cards.kind: 'credit' (fatura) | 'food' (limite mensal sem fatura).
 -- Não use day_of_month.
 -- ============================================================
 
@@ -68,6 +70,7 @@ create table if not exists public.credit_cards (
   closing_day   int not null check (closing_day between 1 and 31),
   due_day       int not null check (due_day between 1 and 31),
   color         text not null default '#6366f1',
+  kind          text not null default 'credit' check (kind in ('credit', 'food')),
   created_at    timestamptz not null default now()
 );
 

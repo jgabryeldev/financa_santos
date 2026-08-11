@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { formatSupabaseError, type ActionResult } from '@/lib/supabase/errors'
+import { cashImpactFromLedger } from '@/lib/cdi'
+import { currentCycle, foodAvailable, foodUsedInCycle } from '@/lib/card-billing'
 import { revalidatePath } from 'next/cache'
 
 // ─── tipos ────────────────────────────────────────────────
@@ -35,27 +37,28 @@ export async function createTransaction(data: TransactionInput): Promise<ActionR
   const supabase = await createClient()
   const profile = await getProfile(supabase)
 
-  const installments = Math.max(1, data.installments || 1)
   const isCredit = !!data.creditCardId
   const baseDate = new Date(data.date + 'T12:00:00')
 
-  let creditCard: { closing_day: number; due_day: number } | null = null
+  let creditCard: { closing_day: number; due_day: number; kind?: string } | null = null
   if (isCredit && data.creditCardId) {
     const { data: cc, error: ccError } = await supabase
       .from('credit_cards')
-      .select('closing_day, due_day')
+      .select('closing_day, due_day, kind')
       .eq('id', data.creditCardId)
       .single()
     if (ccError) return { success: false, error: formatSupabaseError(ccError) }
     creditCard = cc
   }
 
+  const isFood = creditCard?.kind === 'food'
+  const installments = isFood ? 1 : Math.max(1, data.installments || 1)
   const groupId = installments > 1 ? crypto.randomUUID() : null
   const amountPerInstallment = Number((data.amount / installments).toFixed(2))
 
-  // Primeira fatura: se a compra é após o fechamento, cai no ciclo seguinte
+  // Alimentação: 1x, pago (não gera fatura); crédito: ciclo de fechamento
   const firstBillDate = new Date(baseDate)
-  if (isCredit && creditCard) {
+  if (isCredit && creditCard && !isFood) {
     const closing = new Date(baseDate)
     closing.setDate(creditCard.closing_day)
     if (baseDate >= closing) {
@@ -68,7 +71,7 @@ export async function createTransaction(data: TransactionInput): Promise<ActionR
 
   for (let i = 0; i < installments; i++) {
     const txDate = new Date(firstBillDate)
-    txDate.setMonth(txDate.getMonth() + i)
+    if (!isFood) txDate.setMonth(txDate.getMonth() + i)
 
     toInsert.push({
       profile_id: profile.id,
@@ -80,7 +83,8 @@ export async function createTransaction(data: TransactionInput): Promise<ActionR
       group_id: groupId,
       installment_current: i + 1,
       installment_total: installments,
-      is_paid: !isCredit, // débito = pago imediatamente
+      // débito e alimentação = não entram como fatura a pagar
+      is_paid: !isCredit || isFood,
     })
   }
 
@@ -164,10 +168,14 @@ export async function getDashboardBalances() {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
 
-  const [txResult, fixedResult, cardsResult] = await Promise.all([
+  const [txResult, fixedResult, cardsResult, ledgerResult] = await Promise.all([
     supabase.from('transactions').select('*').eq('profile_id', profile.id),
     supabase.from('fixed_finances').select('*').eq('profile_id', profile.id),
     supabase.from('credit_cards').select('*').eq('profile_id', profile.id),
+    supabase
+      .from('investment_ledger')
+      .select('type, amount, principal_amount, yield_amount, occurred_on')
+      .eq('profile_id', profile.id),
   ])
 
   if (txResult.error) throw new Error(formatSupabaseError(txResult.error))
@@ -177,6 +185,9 @@ export async function getDashboardBalances() {
   const transactions = txResult.data || []
   const fixedFinances = fixedResult.data || []
   const creditCards = cardsResult.data || []
+
+  // Ledger pode falhar se migrate v3 não rodou — trata como zero
+  const ledgerRows = ledgerResult.error ? [] : ledgerResult.data || []
 
   // Saldo em conta (débito): transações pagas sem cartão + receitas fixas
   let balanceDebit = 0
@@ -195,11 +206,18 @@ export async function getDashboardBalances() {
 
   balanceDebit += fixedIncomeCurrentMonth
 
+  const investImpact = cashImpactFromLedger(ledgerRows)
+  balanceDebit = balanceDebit - investImpact.netCashOut
+
   let creditCardExpensesCurrentMonth = 0
+  const creditCardIds = new Set(
+    creditCards.filter((c) => (c.kind || 'credit') === 'credit').map((c) => c.id)
+  )
   transactions
     .filter(
       (t) =>
         t.credit_card_id &&
+        creditCardIds.has(t.credit_card_id) &&
         t.type === 'expense' &&
         !t.is_paid &&
         t.date >= monthStart &&
@@ -209,21 +227,43 @@ export async function getDashboardBalances() {
       creditCardExpensesCurrentMonth += Number(t.amount)
     })
 
-  // Saldo real = conta corrente (já com receitas fixas) - gastos fixos - fatura do mês
+  // Saldo real = conta corrente - gastos fixos - fatura (investimentos já saíram da conta)
   const realBalance =
     balanceDebit - fixedExpensesCurrentMonth - creditCardExpensesCurrentMonth
 
   const cardsWithLimits = creditCards.map((cc) => {
+    const kind = cc.kind === 'food' ? 'food' : 'credit'
+    const limit = Number(cc.credit_limit)
+
+    if (kind === 'food') {
+      const cycle = currentCycle(Number(cc.closing_day))
+      const used = foodUsedInCycle(
+        transactions.map((t) => ({ ...t, amount: Number(t.amount) })),
+        cc.id,
+        cycle
+      ).total
+      return {
+        id: cc.id,
+        name: cc.name,
+        color: cc.color || '#6366f1',
+        kind: 'food' as const,
+        limit,
+        used,
+        available: foodAvailable(limit, used),
+        closing_day: Number(cc.closing_day),
+        due_day: Number(cc.due_day),
+      }
+    }
+
     const used = transactions
       .filter((t) => t.credit_card_id === cc.id && !t.is_paid && t.type === 'expense')
       .reduce((acc, t) => acc + Number(t.amount), 0)
-
-    const limit = Number(cc.credit_limit)
 
     return {
       id: cc.id,
       name: cc.name,
       color: cc.color || '#6366f1',
+      kind: 'credit' as const,
       limit,
       used,
       available: limit - used,
@@ -232,6 +272,20 @@ export async function getDashboardBalances() {
     }
   })
 
+  let investedPrincipal = investImpact.investedPrincipal
+  let investedCurrent = investedPrincipal
+  let investedYield = 0
+
+  try {
+    const { getInvestmentTotals } = await import('@/actions/investments')
+    const totals = await getInvestmentTotals()
+    investedPrincipal = totals.investedPrincipal
+    investedCurrent = totals.investedCurrent
+    investedYield = totals.investedYield
+  } catch {
+    // migrate v3 ausente
+  }
+
   return {
     balanceDebit,
     realBalance,
@@ -239,6 +293,9 @@ export async function getDashboardBalances() {
     fixedExpensesCurrentMonth,
     fixedIncomeCurrentMonth,
     creditCardExpensesCurrentMonth,
+    investedPrincipal,
+    investedCurrent,
+    investedYield,
   }
 }
 
@@ -258,5 +315,6 @@ export async function getCards() {
     ...c,
     credit_limit: Number(c.credit_limit),
     color: c.color || '#6366f1',
+    kind: c.kind === 'food' ? 'food' : 'credit',
   }))
 }

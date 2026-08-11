@@ -9,7 +9,7 @@
 
 const BASE = process.argv[2] || process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3000'
 
-const PROTECTED = ['/', '/cards', '/fixed', '/reports', '/profile']
+const PROTECTED = ['/', '/investments', '/cards', '/fixed', '/reports', '/profile']
 
 async function fetchNoFollow(path) {
   return fetch(new URL(path, BASE), {

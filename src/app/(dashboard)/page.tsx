@@ -1,16 +1,30 @@
 import { getDashboardBalances, getTransactions } from '@/actions/transactions'
 import { getCards } from '@/actions/transactions'
 import { TransactionDrawer } from '@/components/TransactionDrawer'
-import { Wallet, TrendingDown, CreditCard, TrendingUp, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { Wallet, TrendingDown, CreditCard, TrendingUp, ArrowUpRight, ArrowDownLeft, PiggyBank } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import Link from 'next/link'
 
 function fmt(value: number) {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default async function DashboardPage() {
-  const [{ balanceDebit, realBalance, cards, fixedExpensesCurrentMonth, fixedIncomeCurrentMonth, creditCardExpensesCurrentMonth }, transactions, allCards] = await Promise.all([
+  const [
+    {
+      balanceDebit,
+      realBalance,
+      cards,
+      fixedExpensesCurrentMonth,
+      fixedIncomeCurrentMonth,
+      creditCardExpensesCurrentMonth,
+      investedCurrent,
+      investedYield,
+    },
+    transactions,
+    allCards,
+  ] = await Promise.all([
     getDashboardBalances(),
     getTransactions(),
     getCards(),
@@ -98,21 +112,52 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        <Link
+          href="/investments"
+          className="block bg-zinc-900 border border-zinc-800 rounded-2xl p-4 hover:border-emerald-500/40 transition-colors"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="bg-emerald-500/10 w-9 h-9 rounded-xl flex items-center justify-center text-emerald-500">
+                <PiggyBank size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-200">Investimentos</p>
+                <p className="text-[10px] text-zinc-500">Cofrinhos % CDI</p>
+              </div>
+            </div>
+            <p className="text-lg font-bold text-zinc-100">
+              R$ {fmt(investedCurrent || 0)}
+            </p>
+          </div>
+          {(investedYield || 0) > 0 && (
+            <p className="text-xs text-emerald-400">
+              Rendimento: + R$ {fmt(investedYield)}
+            </p>
+          )}
+        </Link>
+
         {/* Resumo por cartão */}
         {cards.length > 0 && (
           <div className="space-y-2">
             {cards.map((card) => (
-              <div key={card.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+              <Link
+                key={card.id}
+                href={`/cards/${card.id}`}
+                className="block bg-zinc-900 border border-zinc-800 rounded-2xl p-4 hover:border-zinc-700 transition-colors"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: card.color }} />
                     <span className="text-sm font-medium text-zinc-200">{card.name}</span>
+                    {'kind' in card && card.kind === 'food' && (
+                      <span className="text-[9px] text-amber-400/80 uppercase tracking-wide">VR</span>
+                    )}
                   </div>
                   <span className="text-xs text-zinc-500">
                     R$ {fmt(card.available)} livre
                   </span>
                 </div>
-                {/* Barra de progresso */}
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
@@ -131,7 +176,7 @@ export default async function DashboardPage() {
                     Limite: R$ {fmt(card.limit)}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
@@ -209,7 +254,7 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      <TransactionDrawer cards={allCards.map(c => ({ id: c.id, name: c.name, color: c.color, credit_limit: Number(c.credit_limit) }))} />
+      <TransactionDrawer cards={allCards.map(c => ({ id: c.id, name: c.name, color: c.color, credit_limit: Number(c.credit_limit), kind: c.kind === 'food' ? 'food' : 'credit' }))} />
     </main>
   )
 }
