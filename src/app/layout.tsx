@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -32,6 +33,9 @@ export const metadata: Metadata = {
       { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
   },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
   formatDetection: {
     telephone: false,
   },
@@ -46,6 +50,7 @@ export default function RootLayout({
     <html lang="pt-BR" className="dark">
       <body className={`${inter.className} bg-zinc-950 text-zinc-50 antialiased pb-20`}>
         {children}
+        <ServiceWorkerRegister />
       </body>
     </html>
   )

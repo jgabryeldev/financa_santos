@@ -1,14 +1,17 @@
 {
+  "id": "/",
   "name": "Finanças Família",
   "short_name": "Finanças",
   "description": "Gestão Financeira Pessoal para Casais",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#09090b",
   "theme_color": "#09090b",
   "orientation": "portrait",
   "lang": "pt-BR",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
