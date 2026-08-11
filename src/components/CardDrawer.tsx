@@ -9,9 +9,9 @@ import {
   DrawerClose,
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/MoneyInput'
 import { X } from 'lucide-react'
 import { createCard, updateCard } from '@/actions/cards'
-import { parseMoney } from '@/lib/money'
 
 type CardInput = {
   id?: string
@@ -41,7 +41,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
   const isEdit = !!card?.id
 
   const [name, setName] = useState(card?.name || '')
-  const [limit, setLimit] = useState(card?.credit_limit ? String(card.credit_limit) : '')
+  const [limit, setLimit] = useState(card?.credit_limit ? Number(card.credit_limit) : 0)
   const [closingDay, setClosingDay] = useState(card?.closing_day ? String(card.closing_day) : '')
   const [dueDay, setDueDay] = useState(card?.due_day ? String(card.due_day) : '')
   const [color, setColor] = useState(card?.color || COLORS[0])
@@ -49,7 +49,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
   function reset() {
     if (!isEdit) {
       setName('')
-      setLimit('')
+      setLimit(0)
       setClosingDay('')
       setDueDay('')
       setColor(COLORS[0])
@@ -62,8 +62,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
     setError(null)
 
     if (!name.trim()) return setError('Informe o nome do cartão.')
-    const numLimit = parseMoney(limit)
-    if (!numLimit || numLimit <= 0) return setError('Informe um limite válido.')
+    if (!limit || limit <= 0) return setError('Informe um limite válido.')
     const numClosing = parseInt(closingDay, 10)
     const numDue = parseInt(dueDay, 10)
     if (!numClosing || numClosing < 1 || numClosing > 31) return setError('Dia de fechamento inválido (1-31).')
@@ -73,7 +72,7 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
       try {
         const payload = {
           name: name.trim(),
-          credit_limit: numLimit,
+          credit_limit: limit,
           closing_day: numClosing,
           due_day: numDue,
           color,
@@ -132,12 +131,9 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
 
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">Limite (R$)</label>
-              <Input
+              <MoneyInput
                 value={limit}
-                onChange={(e) => setLimit(e.target.value)}
-                type="text"
-                inputMode="decimal"
-                placeholder="0,00"
+                onChange={setLimit}
                 className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
               />
             </div>

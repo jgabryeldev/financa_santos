@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Wallet } from 'lucide-react'
 import { login, signup } from '@/actions/auth'

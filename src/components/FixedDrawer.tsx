@@ -9,10 +9,10 @@ import {
   DrawerClose,
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/MoneyInput'
 import { X } from 'lucide-react'
 import { createFixed, updateFixed } from '@/actions/fixed'
 import type { FixedFinance } from '@/actions/fixed'
-import { parseMoney } from '@/lib/money'
 
 type Props = {
   children: ReactNode
@@ -34,7 +34,7 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
 
   const [type, setType] = useState<'income' | 'expense'>(fixed?.type || 'expense')
   const [description, setDescription] = useState(fixed?.description || '')
-  const [amount, setAmount] = useState(fixed?.amount ? String(fixed.amount) : '')
+  const [amount, setAmount] = useState(fixed?.amount ? Number(fixed.amount) : 0)
   const [day, setDay] = useState(fixed?.day ? String(fixed.day) : '')
   const [color, setColor] = useState(fixed?.color || COLORS[0])
 
@@ -42,7 +42,7 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
     if (!isEdit) {
       setType('expense')
       setDescription('')
-      setAmount('')
+      setAmount(0)
       setDay('')
       setColor(COLORS[0])
     }
@@ -53,9 +53,8 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
     e.preventDefault()
     setError(null)
 
-    const numAmount = parseMoney(amount)
     if (!description.trim()) return setError('Informe uma descrição.')
-    if (!numAmount || numAmount <= 0) return setError('Informe um valor válido.')
+    if (!amount || amount <= 0) return setError('Informe um valor válido.')
 
     let dayValue: number | null = null
     if (day.trim()) {
@@ -69,7 +68,7 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
       try {
         const payload = {
           description: description.trim(),
-          amount: numAmount,
+          amount,
           type,
           day: dayValue,
           color,
@@ -147,12 +146,9 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
 
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">Valor mensal (R$)</label>
-              <Input
+              <MoneyInput
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                type="text"
-                inputMode="decimal"
-                placeholder="0,00"
+                onChange={setAmount}
                 className="bg-zinc-950 border-zinc-800 text-zinc-100 h-12 focus-visible:ring-indigo-500/50"
               />
             </div>

@@ -178,7 +178,7 @@ export async function getDashboardBalances() {
   const fixedFinances = fixedResult.data || []
   const creditCards = cardsResult.data || []
 
-  // Saldo em conta (débito): soma de todas as transações pagas sem cartão
+  // Saldo em conta (débito): transações pagas sem cartão + receitas fixas
   let balanceDebit = 0
   transactions
     .filter((t) => !t.credit_card_id && t.is_paid)
@@ -192,6 +192,8 @@ export async function getDashboardBalances() {
     if (f.type === 'expense') fixedExpensesCurrentMonth += Number(f.amount)
     else fixedIncomeCurrentMonth += Number(f.amount)
   })
+
+  balanceDebit += fixedIncomeCurrentMonth
 
   let creditCardExpensesCurrentMonth = 0
   transactions
@@ -207,12 +209,9 @@ export async function getDashboardBalances() {
       creditCardExpensesCurrentMonth += Number(t.amount)
     })
 
-  // Saldo real = conta + receitas fixas - gastos fixos - fatura do mês
+  // Saldo real = conta corrente (já com receitas fixas) - gastos fixos - fatura do mês
   const realBalance =
-    balanceDebit +
-    fixedIncomeCurrentMonth -
-    fixedExpensesCurrentMonth -
-    creditCardExpensesCurrentMonth
+    balanceDebit - fixedExpensesCurrentMonth - creditCardExpensesCurrentMonth
 
   const cardsWithLimits = creditCards.map((cc) => {
     const used = transactions

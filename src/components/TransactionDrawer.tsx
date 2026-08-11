@@ -11,7 +11,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Plus, X, CreditCard, Wallet } from 'lucide-react'
 import { createTransaction } from '@/actions/transactions'
-import { localDateISO, parseMoney } from '@/lib/money'
+import { MoneyInput } from '@/components/MoneyInput'
+import { localDateISO } from '@/lib/money'
 
 type Card = {
   id: string
@@ -36,7 +37,7 @@ export function TransactionDrawer({ cards }: Props) {
 
   const [type, setType] = useState<'income' | 'expense'>('expense')
   const [paymentMethod, setPaymentMethod] = useState<'debit' | 'credit'>('debit')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(0)
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(() => localDateISO())
   const [selectedCardId, setSelectedCardId] = useState<string>(cards[0]?.id || '')
@@ -45,7 +46,7 @@ export function TransactionDrawer({ cards }: Props) {
   function reset() {
     setType('expense')
     setPaymentMethod('debit')
-    setAmount('')
+    setAmount(0)
     setDescription('')
     setDate(localDateISO())
     setSelectedCardId(cards[0]?.id || '')
@@ -57,8 +58,7 @@ export function TransactionDrawer({ cards }: Props) {
     e.preventDefault()
     setError(null)
 
-    const numAmount = parseMoney(amount)
-    if (!numAmount || numAmount <= 0) {
+    if (!amount || amount <= 0) {
       setError('Informe um valor válido.')
       return
     }
@@ -75,7 +75,7 @@ export function TransactionDrawer({ cards }: Props) {
       try {
         const result = await createTransaction({
           description: description.trim(),
-          amount: numAmount,
+          amount,
           type,
           date,
           creditCardId: isCredit ? selectedCardId : null,
@@ -147,15 +147,12 @@ export function TransactionDrawer({ cards }: Props) {
 
             {/* Valor */}
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-lg font-medium">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-lg font-medium z-10">
                 R$
               </span>
-              <Input
+              <MoneyInput
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                type="text"
-                inputMode="decimal"
-                placeholder="0,00"
+                onChange={setAmount}
                 autoFocus
                 className="text-3xl h-16 bg-transparent border-zinc-800 text-zinc-100 text-center focus-visible:ring-indigo-500/50 pl-10"
               />

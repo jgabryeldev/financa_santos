@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/supabase/profile'
 import { formatSupabaseError, type ActionResult } from '@/lib/supabase/errors'
+import { isNormalizeDayError, normalizeDay } from '@/lib/fixed-day'
 import { revalidatePath } from 'next/cache'
 
 export type FixedFinance = {
@@ -22,14 +23,6 @@ export type FixedFinanceInput = {
   type: 'income' | 'expense'
   day?: number | null
   color?: string
-}
-
-function normalizeDay(day?: number | null): number | null | { error: string } {
-  if (day == null || day === undefined) return null
-  if (Number.isNaN(day)) return { error: 'Dia do mês inválido.' }
-  const n = Math.trunc(day)
-  if (n < 1 || n > 31) return { error: 'Dia do mês deve ser entre 1 e 31.' }
-  return n
 }
 
 export async function getFixedFinances() {
@@ -57,7 +50,7 @@ export async function createFixed(data: FixedFinanceInput): Promise<ActionResult
   const profile = await getProfile(supabase)
 
   const day = normalizeDay(data.day)
-  if (day && typeof day === 'object' && 'error' in day) {
+  if (isNormalizeDayError(day)) {
     return { success: false, error: day.error }
   }
 
@@ -86,7 +79,7 @@ export async function updateFixed(
   const payload: Record<string, unknown> = { ...data }
   if ('day' in data) {
     const day = normalizeDay(data.day)
-    if (day && typeof day === 'object' && 'error' in day) {
+    if (isNormalizeDayError(day)) {
       return { success: false, error: day.error }
     }
     payload.day = day

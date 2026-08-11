@@ -1,6 +1,8 @@
 -- ============================================================
 -- MIGRAÇÃO: complete colunas que o setup inicial não criou
 -- Rode este script no SQL Editor do Supabase (uma vez).
+-- Depois rode supabase_migrate_v2_reconcile.sql se o banco
+-- ainda tiver day_of_month ou faltar color em fixed_finances.
 -- ============================================================
 
 alter table public.profiles

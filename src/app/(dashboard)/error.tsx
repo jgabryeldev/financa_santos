@@ -26,10 +26,10 @@ export default function DashboardError({
       <p className="text-zinc-500 text-sm font-medium mb-2">Erro</p>
       <h1 className="text-xl font-bold text-zinc-100 mb-3">Não foi possível carregar</h1>
       <p className="text-sm text-zinc-400 max-w-sm mb-6">{message}</p>
-      {/column .+ does not exist|supabase_migrate/i.test(message) && (
+      {/column .+ does not exist|supabase_migrate|day_of_month|PGRST204|23502/i.test(message) && (
         <p className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 max-w-sm mb-6 text-left">
           O banco parece desatualizado. Abra o SQL Editor do Supabase e execute o arquivo{' '}
-          <code className="text-amber-300">supabase_migrate.sql</code> do projeto.
+          <code className="text-amber-300">supabase_migrate_v2_reconcile.sql</code> do projeto.
         </p>
       )}
       <div className="flex gap-3">

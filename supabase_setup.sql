@@ -1,6 +1,15 @@
 -- ============================================================
 -- FINANÇAS FAMÍLIA — Script de Setup do Supabase
 -- Execute este script no SQL Editor do seu projeto Supabase
+--
+-- Ordem em projetos já existentes / com erro de schema:
+--   1) supabase_setup.sql
+--   2) supabase_migrate.sql
+--   3) supabase_migrate_v2_reconcile.sql  ← obrigatório se houver
+--      day_of_month / color ausente (PGRST204 / 23502)
+--
+-- Schema canônico de fixed_finances: day (nullable), color (NOT NULL).
+-- Não use day_of_month.
 -- ============================================================
 
 -- Habilita a extensão UUID
