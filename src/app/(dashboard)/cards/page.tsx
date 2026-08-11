@@ -109,7 +109,7 @@ export default async function CardsPage() {
                     <div>
                       <p className="font-semibold text-zinc-100">{card.name}</p>
                       <p className="text-xs text-zinc-500">
-                        Fecha dia {(cards.find(c => c.id === card.id) as any)?.closing_day} • Vence dia {(cards.find(c => c.id === card.id) as any)?.due_day}
+                        Fecha dia {card.closing_day} • Vence dia {card.due_day}
                       </p>
                     </div>
                   </div>

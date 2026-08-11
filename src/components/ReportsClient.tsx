@@ -5,14 +5,11 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, BarChart2, Trash2 } from 'lucide-react'
 import { deleteTransaction, deleteTransactionGroup } from '@/actions/transactions'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import type { Transaction } from '@/actions/transactions'
-
-type Card = { id: string; name: string; color: string; limit: number; used: number; available: number }
 
 type Props = {
   transactions: Transaction[]
-  cards: Card[]
   year: number
   month: number
 }
@@ -26,9 +23,10 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 }
 
-export function ReportsClient({ transactions, cards, year, month }: Props) {
+export function ReportsClient({ transactions, year, month }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
   function navigate(dir: 1 | -1) {
     let newMonth = month + dir
@@ -63,11 +61,16 @@ export function ReportsClient({ transactions, cards, year, month }: Props) {
       : 'Excluir esta transação?'
     if (!confirm(msg)) return
 
+    setError(null)
     startTransition(async () => {
-      if (isGroup && tx.group_id) {
-        await deleteTransactionGroup(tx.group_id)
-      } else {
-        await deleteTransaction(tx.id)
+      try {
+        const result =
+          isGroup && tx.group_id
+            ? await deleteTransactionGroup(tx.group_id)
+            : await deleteTransaction(tx.id)
+        if (!result.success) setError(result.error)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao excluir.')
       }
     })
   }
@@ -134,6 +137,9 @@ export function ReportsClient({ transactions, cards, year, month }: Props) {
 
       {/* Lista de transações */}
       <section>
+        {error && (
+          <p className="text-xs text-red-400 bg-red-500/10 p-3 rounded-xl mb-3">{error}</p>
+        )}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
             <BarChart2 size={16} className="text-zinc-500" />
@@ -177,7 +183,7 @@ export function ReportsClient({ transactions, cards, year, month }: Props) {
                       )}
                       <span className="text-[10px] text-zinc-600">•</span>
                       <span className="text-[10px] text-zinc-500">
-                        {format(parseISO(tx.date), "d MMM", { locale: ptBR })}
+                        {tx.date ? format(parseISO(tx.date), "d MMM", { locale: ptBR }) : '—'}
                       </span>
                       {isInstallment && (
                         <>

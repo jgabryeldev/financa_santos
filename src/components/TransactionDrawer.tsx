@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Plus, X, CreditCard, Wallet } from 'lucide-react'
 import { createTransaction } from '@/actions/transactions'
+import { localDateISO, parseMoney } from '@/lib/money'
 
 type Card = {
   id: string
@@ -37,7 +38,7 @@ export function TransactionDrawer({ cards }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<'debit' | 'credit'>('debit')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(() => localDateISO())
   const [selectedCardId, setSelectedCardId] = useState<string>(cards[0]?.id || '')
   const [installments, setInstallments] = useState('1')
 
@@ -46,7 +47,7 @@ export function TransactionDrawer({ cards }: Props) {
     setPaymentMethod('debit')
     setAmount('')
     setDescription('')
-    setDate(new Date().toISOString().split('T')[0])
+    setDate(localDateISO())
     setSelectedCardId(cards[0]?.id || '')
     setInstallments('1')
     setError(null)
@@ -56,7 +57,7 @@ export function TransactionDrawer({ cards }: Props) {
     e.preventDefault()
     setError(null)
 
-    const numAmount = parseFloat(amount.replace(',', '.'))
+    const numAmount = parseMoney(amount)
     if (!numAmount || numAmount <= 0) {
       setError('Informe um valor válido.')
       return
@@ -72,14 +73,18 @@ export function TransactionDrawer({ cards }: Props) {
 
     startTransition(async () => {
       try {
-        await createTransaction({
+        const result = await createTransaction({
           description: description.trim(),
           amount: numAmount,
           type,
           date,
           creditCardId: isCredit ? selectedCardId : null,
-          installments: isCredit ? parseInt(installments) : 1,
+          installments: isCredit ? parseInt(installments, 10) : 1,
         })
+        if (!result.success) {
+          setError(result.error)
+          return
+        }
         reset()
         setOpen(false)
       } catch (err) {

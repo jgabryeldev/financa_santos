@@ -10,7 +10,7 @@ function fmt(value: number) {
 }
 
 export default async function DashboardPage() {
-  const [{ balanceDebit, realBalance, cards, fixedExpensesCurrentMonth, creditCardExpensesCurrentMonth }, transactions, allCards] = await Promise.all([
+  const [{ balanceDebit, realBalance, cards, fixedExpensesCurrentMonth, fixedIncomeCurrentMonth, creditCardExpensesCurrentMonth }, transactions, allCards] = await Promise.all([
     getDashboardBalances(),
     getTransactions(),
     getCards(),
@@ -45,7 +45,15 @@ export default async function DashboardPage() {
           <p className={`text-4xl font-bold tracking-tight mb-3 relative z-10 ${realBalance < 0 ? 'text-red-300' : 'text-white'}`}>
             R$ {fmt(realBalance)}
           </p>
-          <div className="flex gap-4 relative z-10">
+          <div className="flex flex-wrap gap-4 relative z-10">
+            {fixedIncomeCurrentMonth > 0 && (
+              <div className="flex items-center gap-1.5">
+                <TrendingUp size={12} className="text-indigo-300" />
+                <span className="text-xs text-indigo-200">
+                  Receitas fixas: <strong className="text-white">R$ {fmt(fixedIncomeCurrentMonth)}</strong>
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
               <TrendingDown size={12} className="text-indigo-300" />
               <span className="text-xs text-indigo-200">
@@ -109,7 +117,7 @@ export default async function DashboardPage() {
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.min(100, (card.used / card.limit) * 100)}%`,
+                      width: `${card.limit > 0 ? Math.min(100, (card.used / card.limit) * 100) : 0}%`,
                       backgroundColor: card.color,
                       opacity: 0.8,
                     }}
@@ -177,7 +185,7 @@ export default async function DashboardPage() {
                       )}
                       <span className="text-[10px] text-zinc-600">•</span>
                       <span className="text-[10px] text-zinc-500">
-                        {format(parseISO(tx.date), "d MMM", { locale: ptBR })}
+                        {tx.date ? format(parseISO(tx.date), "d MMM", { locale: ptBR }) : '—'}
                       </span>
                       {isInstallment && (
                         <>

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import { createFixed, updateFixed } from '@/actions/fixed'
 import type { FixedFinance } from '@/actions/fixed'
+import { parseMoney } from '@/lib/money'
 
 type Props = {
   children: ReactNode
@@ -52,9 +53,17 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
     e.preventDefault()
     setError(null)
 
-    const numAmount = parseFloat(amount.replace(',', '.'))
+    const numAmount = parseMoney(amount)
     if (!description.trim()) return setError('Informe uma descrição.')
     if (!numAmount || numAmount <= 0) return setError('Informe um valor válido.')
+
+    let dayValue: number | null = null
+    if (day.trim()) {
+      dayValue = parseInt(day, 10)
+      if (!dayValue || dayValue < 1 || dayValue > 31) {
+        return setError('Dia do mês inválido (1-31).')
+      }
+    }
 
     startTransition(async () => {
       try {
@@ -62,14 +71,18 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
           description: description.trim(),
           amount: numAmount,
           type,
-          day: day ? parseInt(day) : null,
+          day: dayValue,
           color,
         }
 
-        if (isEdit && fixed.id) {
-          await updateFixed(fixed.id, payload)
-        } else {
-          await createFixed(payload)
+        const result =
+          isEdit && fixed.id
+            ? await updateFixed(fixed.id, payload)
+            : await createFixed(payload)
+
+        if (!result.success) {
+          setError(result.error)
+          return
         }
 
         reset()
@@ -103,7 +116,6 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
           </div>
 
           <form onSubmit={handleSubmit} className="px-6 space-y-4">
-            {/* Tipo */}
             <div className="flex gap-2 p-1 bg-zinc-950 rounded-xl">
               {(['expense', 'income'] as const).map((t) => (
                 <button
@@ -123,7 +135,6 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
               ))}
             </div>
 
-            {/* Descrição */}
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">Descrição</label>
               <Input
@@ -134,7 +145,6 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
               />
             </div>
 
-            {/* Valor */}
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">Valor mensal (R$)</label>
               <Input
@@ -147,7 +157,6 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
               />
             </div>
 
-            {/* Dia de vencimento (opcional) */}
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">
                 Dia do mês (opcional)
@@ -163,7 +172,6 @@ export function FixedDrawer({ children, fixed, onSuccess }: Props) {
               />
             </div>
 
-            {/* Cor */}
             <div className="space-y-2">
               <label className="text-xs text-zinc-500 font-medium">Cor</label>
               <div className="flex gap-2 flex-wrap">

@@ -106,13 +106,14 @@ export default async function FixedPage() {
 
 function FixedItem({ item }: { item: Awaited<ReturnType<typeof getFixedFinances>>[number] }) {
   const isExpense = item.type === 'expense'
+  const color = item.color || '#6366f1'
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: item.color + '20' }}
+        style={{ backgroundColor: color + '20' }}
       >
-        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-zinc-200 truncate">{item.description}</p>

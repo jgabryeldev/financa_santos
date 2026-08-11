@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import { createCard, updateCard } from '@/actions/cards'
+import { parseMoney } from '@/lib/money'
 
 type CardInput = {
   id?: string
@@ -61,10 +62,10 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
     setError(null)
 
     if (!name.trim()) return setError('Informe o nome do cartão.')
-    const numLimit = parseFloat(limit.replace(',', '.'))
+    const numLimit = parseMoney(limit)
     if (!numLimit || numLimit <= 0) return setError('Informe um limite válido.')
-    const numClosing = parseInt(closingDay)
-    const numDue = parseInt(dueDay)
+    const numClosing = parseInt(closingDay, 10)
+    const numDue = parseInt(dueDay, 10)
     if (!numClosing || numClosing < 1 || numClosing > 31) return setError('Dia de fechamento inválido (1-31).')
     if (!numDue || numDue < 1 || numDue > 31) return setError('Dia de vencimento inválido (1-31).')
 
@@ -78,10 +79,14 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
           color,
         }
 
-        if (isEdit && card.id) {
-          await updateCard(card.id, payload)
-        } else {
-          await createCard(payload)
+        const result =
+          isEdit && card.id
+            ? await updateCard(card.id, payload)
+            : await createCard(payload)
+
+        if (!result.success) {
+          setError(result.error)
+          return
         }
 
         reset()
@@ -115,7 +120,6 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
           </div>
 
           <form onSubmit={handleSubmit} className="px-6 space-y-4">
-            {/* Nome */}
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">Nome do cartão</label>
               <Input
@@ -126,7 +130,6 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
               />
             </div>
 
-            {/* Limite */}
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-500 font-medium">Limite (R$)</label>
               <Input
@@ -139,7 +142,6 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
               />
             </div>
 
-            {/* Datas */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-500 font-medium">Dia fechamento</label>
@@ -167,7 +169,6 @@ export function CardDrawer({ children, card, onSuccess }: Props) {
               </div>
             </div>
 
-            {/* Cor */}
             <div className="space-y-2">
               <label className="text-xs text-zinc-500 font-medium">Cor</label>
               <div className="flex gap-2 flex-wrap">

@@ -1,8 +1,9 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/supabase/profile'
+import { formatSupabaseError, type ActionResult } from '@/lib/supabase/errors'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
 export type CreditCard = {
   id: string
@@ -23,29 +24,7 @@ export type CardInput = {
   color: string
 }
 
-async function getProfile(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (error || !profile) {
-    const { data: newProfile, error: insertError } = await supabase
-      .from('profiles')
-      .insert({ user_id: user.id })
-      .select('id')
-      .single()
-    if (insertError || !newProfile) throw new Error('Erro ao obter perfil do usuário')
-    return newProfile
-  }
-  return profile
-}
-
-export async function createCard(data: CardInput) {
+export async function createCard(data: CardInput): Promise<ActionResult> {
   const supabase = await createClient()
   const profile = await getProfile(supabase)
 
@@ -58,13 +37,16 @@ export async function createCard(data: CardInput) {
     color: data.color,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) return { success: false, error: formatSupabaseError(error) }
 
   revalidatePath('/', 'layout')
   return { success: true }
 }
 
-export async function updateCard(id: string, data: Partial<CardInput>) {
+export async function updateCard(
+  id: string,
+  data: Partial<CardInput>
+): Promise<ActionResult> {
   const supabase = await createClient()
   const profile = await getProfile(supabase)
 
@@ -74,13 +56,13 @@ export async function updateCard(id: string, data: Partial<CardInput>) {
     .eq('id', id)
     .eq('profile_id', profile.id)
 
-  if (error) throw new Error(error.message)
+  if (error) return { success: false, error: formatSupabaseError(error) }
 
   revalidatePath('/', 'layout')
   return { success: true }
 }
 
-export async function deleteCard(id: string) {
+export async function deleteCard(id: string): Promise<ActionResult> {
   const supabase = await createClient()
   const profile = await getProfile(supabase)
 
@@ -90,7 +72,7 @@ export async function deleteCard(id: string) {
     .eq('id', id)
     .eq('profile_id', profile.id)
 
-  if (error) throw new Error(error.message)
+  if (error) return { success: false, error: formatSupabaseError(error) }
 
   revalidatePath('/', 'layout')
   return { success: true }
