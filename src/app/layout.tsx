@@ -10,16 +10,30 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: '#09090b',
+  viewportFit: 'cover',
 }
 
 export const metadata: Metadata = {
   title: 'Finanças Família',
   description: 'Gestão Financeira para Casais',
+  applicationName: 'Finanças Família',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Finanças'
+    title: 'Finanças',
+  },
+  icons: {
+    icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  formatDetection: {
+    telephone: false,
   },
 }
 

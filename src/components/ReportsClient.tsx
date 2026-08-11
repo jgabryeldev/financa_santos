@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, BarChart2, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, BarChart2, Trash2, Users } from 'lucide-react'
 import { deleteTransaction, deleteTransactionGroup } from '@/actions/transactions'
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import type { Transaction } from '@/actions/transactions'
 
 type Props = {
@@ -23,10 +23,17 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 }
 
+function memberLabel(tx: Transaction) {
+  const by = tx.created_by
+  if (!by) return 'Família'
+  return by.name || by.email || 'Membro'
+}
+
 export function ReportsClient({ transactions, year, month }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [openMember, setOpenMember] = useState<string | null>(null)
 
   function navigate(dir: 1 | -1) {
     let newMonth = month + dir
@@ -40,7 +47,6 @@ export function ReportsClient({ transactions, year, month }: Props) {
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
   const balance = totalIncome - totalExpense
 
-  // Agrupar por cartão
   const byCard: Record<string, { name: string; color: string; total: number }> = {}
   transactions.filter(t => t.credit_card_id && t.type === 'expense').forEach(t => {
     const cardId = t.credit_card_id!
@@ -53,6 +59,31 @@ export function ReportsClient({ transactions, year, month }: Props) {
     }
     byCard[cardId].total += Number(t.amount)
   })
+
+  const byMember = useMemo(() => {
+    const map: Record<
+      string,
+      { key: string; label: string; email: string | null; total: number; items: Transaction[] }
+    > = {}
+
+    for (const t of transactions.filter((tx) => tx.type === 'expense')) {
+      const key = t.created_by_profile_id || t.created_by?.id || 'unknown'
+      const label = memberLabel(t)
+      if (!map[key]) {
+        map[key] = {
+          key,
+          label,
+          email: t.created_by?.email ?? null,
+          total: 0,
+          items: [],
+        }
+      }
+      map[key].total += Number(t.amount)
+      map[key].items.push(t)
+    }
+
+    return Object.values(map).sort((a, b) => b.total - a.total)
+  }, [transactions])
 
   function handleDelete(tx: Transaction) {
     const isGroup = tx.installment_total > 1 && tx.group_id
@@ -77,7 +108,6 @@ export function ReportsClient({ transactions, year, month }: Props) {
 
   return (
     <main className="min-h-screen p-4 pb-32">
-      {/* Header com navegação de mês */}
       <header className="py-4 mb-6">
         <p className="text-zinc-500 text-sm font-medium mb-1">Relatório mensal</p>
         <div className="flex items-center justify-between">
@@ -99,7 +129,6 @@ export function ReportsClient({ transactions, year, month }: Props) {
         </div>
       </header>
 
-      {/* Resumo do mês */}
       <section className="mb-6">
         <div className="bg-gradient-to-br from-zinc-900 to-zinc-900/50 border border-zinc-800 rounded-3xl p-5 mb-3">
           <div className="grid grid-cols-3 gap-4">
@@ -120,9 +149,8 @@ export function ReportsClient({ transactions, year, month }: Props) {
           </div>
         </div>
 
-        {/* Fatura por cartão */}
         {Object.keys(byCard).length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             <p className="text-xs text-zinc-500 font-medium px-1">Faturas do mês</p>
             {Object.entries(byCard).map(([id, info]) => (
               <div key={id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex items-center gap-3">
@@ -133,9 +161,64 @@ export function ReportsClient({ transactions, year, month }: Props) {
             ))}
           </div>
         )}
+
+        {byMember.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs text-zinc-500 font-medium px-1 flex items-center gap-1.5">
+              <Users size={12} />
+              Gastos por pessoa
+            </p>
+            {byMember.map((member) => {
+              const open = openMember === member.key
+              return (
+                <div key={member.key} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOpenMember(open ? null : member.key)}
+                    className="w-full p-3 flex items-center gap-3 text-left hover:bg-zinc-800/40 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-300 flex items-center justify-center text-xs font-bold uppercase">
+                      {member.label.slice(0, 1)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-zinc-200 font-medium truncate">{member.label}</p>
+                      {member.email && (
+                        <p className="text-[10px] text-zinc-600 truncate">{member.email}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-red-400">R$ {fmt(member.total)}</p>
+                      <p className="text-[10px] text-zinc-600">{member.items.length} itens</p>
+                    </div>
+                  </button>
+                  {open && (
+                    <div className="border-t border-zinc-800 px-3 py-2 space-y-2">
+                      {member.items.map((tx) => (
+                        <div key={tx.id} className="flex items-start justify-between gap-3 py-1.5">
+                          <div className="min-w-0">
+                            <p className="text-xs text-zinc-300 truncate">{tx.description}</p>
+                            <p className="text-[10px] text-zinc-600 mt-0.5">
+                              {tx.date ? format(parseISO(tx.date), "d MMM", { locale: ptBR }) : '—'}
+                              {tx.credit_cards ? ` · ${tx.credit_cards.name}` : ' · Débito'}
+                              {tx.installment_total > 1
+                                ? ` · ${tx.installment_current}/${tx.installment_total}x`
+                                : ''}
+                            </p>
+                          </div>
+                          <p className="text-xs font-semibold text-red-400 flex-shrink-0">
+                            R$ {fmt(Number(tx.amount))}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
 
-      {/* Lista de transações */}
       <section>
         {error && (
           <p className="text-xs text-red-400 bg-red-500/10 p-3 rounded-xl mb-3">{error}</p>
@@ -193,6 +276,8 @@ export function ReportsClient({ transactions, year, month }: Props) {
                           </span>
                         </>
                       )}
+                      <span className="text-[10px] text-zinc-600">•</span>
+                      <span className="text-[10px] text-zinc-500">{memberLabel(tx)}</span>
                     </div>
                   </div>
 

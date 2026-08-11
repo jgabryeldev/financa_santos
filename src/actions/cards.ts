@@ -66,6 +66,7 @@ export async function createCard(data: CardInput): Promise<ActionResult> {
 
   const { error } = await supabase.from('credit_cards').insert({
     profile_id: profile.id,
+    household_id: profile.household_id,
     name: data.name,
     credit_limit: data.credit_limit,
     closing_day: data.closing_day,
@@ -96,7 +97,7 @@ export async function updateCard(
     .from('credit_cards')
     .update(payload)
     .eq('id', id)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 
@@ -112,7 +113,7 @@ export async function deleteCard(id: string): Promise<ActionResult> {
     .from('credit_cards')
     .delete()
     .eq('id', id)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 
@@ -128,7 +129,7 @@ export async function getCardDetail(cardId: string): Promise<CardDetail> {
     .from('credit_cards')
     .select('*')
     .eq('id', cardId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .single()
 
   if (cardError || !cardRow) notFound()
@@ -136,7 +137,7 @@ export async function getCardDetail(cardId: string): Promise<CardDetail> {
   const { data: txRows, error: txError } = await supabase
     .from('transactions')
     .select('*')
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .eq('credit_card_id', cardId)
     .order('date', { ascending: true })
 

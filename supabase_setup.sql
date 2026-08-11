@@ -8,9 +8,11 @@
 --   3) supabase_migrate_v2_reconcile.sql  ← day_of_month / color
 --   4) supabase_migrate_v3_investments.sql ← cofrinhos / CDI
 --   5) supabase_migrate_v4_card_kinds.sql  ← credit | food
+--   6) supabase_migrate_v5_family_household.sql ← dados compartilhados + auditoria
 --
 -- Schema canônico de fixed_finances: day (nullable), color (NOT NULL).
 -- credit_cards.kind: 'credit' (fatura) | 'food' (limite mensal sem fatura).
+-- Família: um household; todos os membros vêem os mesmos dados financeiros.
 -- Não use day_of_month.
 -- ============================================================
 

@@ -49,18 +49,18 @@ export type CreatePotInput = {
 
 async function getCashAvailable(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  profileId: string
+  householdId: string
 ): Promise<number> {
   const [txResult, fixedResult, ledgerResult] = await Promise.all([
     supabase
       .from('transactions')
       .select('amount, type, credit_card_id, is_paid')
-      .eq('profile_id', profileId),
-    supabase.from('fixed_finances').select('amount, type').eq('profile_id', profileId),
+      .eq('household_id', householdId),
+    supabase.from('fixed_finances').select('amount, type').eq('household_id', householdId),
     supabase
       .from('investment_ledger')
       .select('type, amount, principal_amount, yield_amount, occurred_on')
-      .eq('profile_id', profileId),
+      .eq('household_id', householdId),
   ])
 
   if (txResult.error) throw new Error(formatSupabaseError(txResult.error))
@@ -95,7 +95,7 @@ export async function listPotsWithBalances(): Promise<PotWithBalance[]> {
   const { data: pots, error } = await supabase
     .from('investment_pots')
     .select('*')
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
@@ -113,7 +113,7 @@ export async function listPotsWithBalances(): Promise<PotWithBalance[]> {
   const { data: ledger, error: ledgerError } = await supabase
     .from('investment_ledger')
     .select('*')
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .in(
       'pot_id',
       pots.map((p) => p.id)
@@ -175,7 +175,7 @@ export async function createPotWithApply(input: CreatePotInput): Promise<ActionR
   const profile = await getProfile(supabase)
 
   try {
-    const available = await getCashAvailable(supabase, profile.id)
+    const available = await getCashAvailable(supabase, profile.household_id)
     if (input.initialAmount > available) {
       return {
         success: false,
@@ -190,6 +190,7 @@ export async function createPotWithApply(input: CreatePotInput): Promise<ActionR
     .from('investment_pots')
     .insert({
       profile_id: profile.id,
+      household_id: profile.household_id,
       name,
       cdi_percent: input.cdiPercent,
       liquidity: input.liquidity,
@@ -210,6 +211,7 @@ export async function createPotWithApply(input: CreatePotInput): Promise<ActionR
   const { error: ledgerError } = await supabase.from('investment_ledger').insert({
     pot_id: pot.id,
     profile_id: profile.id,
+    household_id: profile.household_id,
     type: 'apply',
     amount: input.initialAmount,
     occurred_on: localDateISO(),
@@ -234,14 +236,14 @@ export async function applyToPot(potId: string, amount: number): Promise<ActionR
     .from('investment_pots')
     .select('*')
     .eq('id', potId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .single()
 
   if (potError || !pot) return { success: false, error: 'Cofrinho não encontrado.' }
   if (pot.status !== 'active') return { success: false, error: 'Cofrinho encerrado.' }
 
   try {
-    const available = await getCashAvailable(supabase, profile.id)
+    const available = await getCashAvailable(supabase, profile.household_id)
     if (amount > available) {
       return {
         success: false,
@@ -255,6 +257,7 @@ export async function applyToPot(potId: string, amount: number): Promise<ActionR
   const { error } = await supabase.from('investment_ledger').insert({
     pot_id: potId,
     profile_id: profile.id,
+    household_id: profile.household_id,
     type: 'apply',
     amount,
     occurred_on: localDateISO(),
@@ -279,7 +282,7 @@ export async function redeemFromPot(
     .from('investment_pots')
     .select('*')
     .eq('id', potId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .single()
 
   if (potError || !pot) return { success: false, error: 'Cofrinho não encontrado.' }
@@ -297,7 +300,7 @@ export async function redeemFromPot(
     .from('investment_ledger')
     .select('*')
     .eq('pot_id', potId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .order('occurred_on', { ascending: true })
 
   if (ledgerError) return { success: false, error: formatSupabaseError(ledgerError) }
@@ -327,6 +330,7 @@ export async function redeemFromPot(
   const { error } = await supabase.from('investment_ledger').insert({
     pot_id: potId,
     profile_id: profile.id,
+    household_id: profile.household_id,
     type: 'redeem',
     amount: redeemAmount,
     principal_amount: principalAmount,
@@ -343,7 +347,7 @@ export async function redeemFromPot(
       .from('investment_pots')
       .update({ status: 'closed' })
       .eq('id', potId)
-      .eq('profile_id', profile.id)
+      .eq('household_id', profile.household_id)
   }
 
   revalidatePath('/', 'layout')
@@ -362,7 +366,7 @@ export async function deleteClosedPot(potId: string): Promise<ActionResult> {
     .from('investment_pots')
     .select('id, status')
     .eq('id', potId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .single()
 
   if (!pot) return { success: false, error: 'Cofrinho não encontrado.' }
@@ -374,7 +378,7 @@ export async function deleteClosedPot(potId: string): Promise<ActionResult> {
     .from('investment_pots')
     .delete()
     .eq('id', potId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 
@@ -406,7 +410,7 @@ export async function getInvestmentTotals(): Promise<{
     const { data: ledger } = await supabase
       .from('investment_ledger')
       .select('type, amount, principal_amount, yield_amount, occurred_on')
-      .eq('profile_id', profile.id)
+      .eq('household_id', profile.household_id)
 
     const impact = cashImpactFromLedger((ledger || []) as LedgerLike[])
 

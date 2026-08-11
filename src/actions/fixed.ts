@@ -32,7 +32,7 @@ export async function getFixedFinances() {
   const { data, error } = await supabase
     .from('fixed_finances')
     .select('*')
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .order('type', { ascending: false })
     .order('amount', { ascending: false })
 
@@ -56,6 +56,7 @@ export async function createFixed(data: FixedFinanceInput): Promise<ActionResult
 
   const { error } = await supabase.from('fixed_finances').insert({
     profile_id: profile.id,
+    household_id: profile.household_id,
     description: data.description,
     amount: data.amount,
     type: data.type,
@@ -89,7 +90,7 @@ export async function updateFixed(
     .from('fixed_finances')
     .update(payload)
     .eq('id', id)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 
@@ -105,7 +106,7 @@ export async function deleteFixed(id: string): Promise<ActionResult> {
     .from('fixed_finances')
     .delete()
     .eq('id', id)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 

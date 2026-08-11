@@ -26,6 +26,9 @@ export function formatSupabaseError(error: SupabaseLikeError): string {
     if (/kind|credit_cards/i.test(message)) {
       return `Schema de cartões desatualizado. Execute supabase_migrate_v4_card_kinds.sql no SQL Editor do Supabase.`
     }
+    if (/household_id|created_by_profile_id|households/i.test(message)) {
+      return `Dados da família não configurados. Execute supabase_migrate_v5_family_household.sql no SQL Editor do Supabase.`
+    }
     return `O banco está desatualizado (coluna ausente no schema). ${MIGRATE_V2_HINT}`
   }
 

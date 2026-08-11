@@ -29,7 +29,9 @@ export type Transaction = {
   installment_total: number
   is_paid: boolean
   created_at: string
+  created_by_profile_id?: string | null
   credit_cards: { name: string; color: string } | null
+  created_by?: { id: string; name: string | null; email: string | null } | null
 }
 
 // ─── createTransaction ────────────────────────────────────
@@ -75,6 +77,8 @@ export async function createTransaction(data: TransactionInput): Promise<ActionR
 
     toInsert.push({
       profile_id: profile.id,
+      household_id: profile.household_id,
+      created_by_profile_id: profile.id,
       description: data.description,
       amount: amountPerInstallment,
       type: data.type,
@@ -102,8 +106,8 @@ export async function getTransactions(year?: number, month?: number) {
 
   let query = supabase
     .from('transactions')
-    .select('*, credit_cards(name, color)')
-    .eq('profile_id', profile.id)
+    .select('*, credit_cards(name, color), created_by:profiles!created_by_profile_id(id, name, email)')
+    .eq('household_id', profile.household_id)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
 
@@ -114,7 +118,7 @@ export async function getTransactions(year?: number, month?: number) {
     query = query.gte('date', start).lte('date', end)
   }
 
-  const { data, error } = await query.limit(100)
+  const { data, error } = await query.limit(500)
   if (error) throw new Error(formatSupabaseError(error))
 
   return (data || []).map((tx) => ({
@@ -132,7 +136,7 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
     .from('transactions')
     .delete()
     .eq('id', id)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 
@@ -149,7 +153,7 @@ export async function deleteTransactionGroup(groupId: string): Promise<ActionRes
     .from('transactions')
     .delete()
     .eq('group_id', groupId)
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
 
   if (error) return { success: false, error: formatSupabaseError(error) }
 
@@ -168,14 +172,15 @@ export async function getDashboardBalances() {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
 
+  const hid = profile.household_id
   const [txResult, fixedResult, cardsResult, ledgerResult] = await Promise.all([
-    supabase.from('transactions').select('*').eq('profile_id', profile.id),
-    supabase.from('fixed_finances').select('*').eq('profile_id', profile.id),
-    supabase.from('credit_cards').select('*').eq('profile_id', profile.id),
+    supabase.from('transactions').select('*').eq('household_id', hid),
+    supabase.from('fixed_finances').select('*').eq('household_id', hid),
+    supabase.from('credit_cards').select('*').eq('household_id', hid),
     supabase
       .from('investment_ledger')
       .select('type, amount, principal_amount, yield_amount, occurred_on')
-      .eq('profile_id', profile.id),
+      .eq('household_id', hid),
   ])
 
   if (txResult.error) throw new Error(formatSupabaseError(txResult.error))
@@ -307,7 +312,7 @@ export async function getCards() {
   const { data, error } = await supabase
     .from('credit_cards')
     .select('*')
-    .eq('profile_id', profile.id)
+    .eq('household_id', profile.household_id)
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(formatSupabaseError(error))
