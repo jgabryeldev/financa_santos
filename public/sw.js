@@ -1,7 +1,6 @@
-/* Service worker mínimo para instalação PWA (WebAPK) no Chrome Android.
-   Sem um fetch handler, o Chrome costuma criar só um atalho que abre na aba do browser. */
-const VERSION = 'financas-sw-v1'
-
+/* Service worker mínimo (installabilidade PWA).
+   NÃO intercepta navegações nem rotas do Next — isso quebrava cookies do Supabase
+   e forçava login a cada abertura. */
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting())
 })
@@ -10,23 +9,27 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys()
-      await Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))
+      await Promise.all(keys.map((k) => caches.delete(k)))
       await self.clients.claim()
     })()
   )
 })
 
 self.addEventListener('fetch', (event) => {
-  // Network-first: não intercepta de forma agressiva; só garante o handler exigido pelo Chrome.
-  event.respondWith(
-    fetch(event.request).catch(async () => {
-      if (event.request.mode === 'navigate') {
-        return new Response(
-          '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finanças</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#09090b;color:#fafafa;font-family:system-ui,sans-serif;padding:24px;text-align:center}p{opacity:.7}</style></head><body><div><h1>Sem conexão</h1><p>Abra de novo quando estiver online.</p></div></body></html>',
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-        )
-      }
-      return Response.error()
-    })
-  )
+  // Deixa o browser lidar com páginas/RSC/auth (preserva Set-Cookie).
+  if (event.request.mode === 'navigate') return
+
+  const url = new URL(event.request.url)
+  if (url.origin !== self.location.origin) return
+  if (url.pathname.startsWith('/_next/')) return
+  if (url.pathname === '/sw.js' || url.pathname === '/manifest.json') return
+  if (url.pathname.startsWith('/login')) return
+
+  // Handler "não vazio" só para assets estáticos (critério do Chrome).
+  if (
+    url.pathname.startsWith('/icons/') ||
+    /\.(?:png|svg|jpe?g|webp|ico|gif)$/i.test(url.pathname)
+  ) {
+    event.respondWith(fetch(event.request))
+  }
 })
